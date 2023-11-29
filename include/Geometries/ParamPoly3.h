@@ -30,6 +30,7 @@ struct ParamPoly3 : public RoadGeometry
 
     Vec2D get_xy(double s) const override;
     Vec2D get_grad(double s) const override;
+    Vec2D get_laplace(double s) const override;
 
     std::set<double> approximate_linear(double eps) const override;
 

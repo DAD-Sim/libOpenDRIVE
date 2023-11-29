@@ -62,7 +62,7 @@ struct equal_to<odr::WeightedLaneKey>
 {
     size_t operator()(const odr::WeightedLaneKey& lhs, const odr::WeightedLaneKey& rhs) const
     {
-        return equal_to<odr::LaneKey>{}(lhs, rhs) && equal_to<double>{}(lhs.weight, rhs.weight);
+        return equal_to<odr::LaneKey>{}(lhs, rhs)/* && equal_to<double>{}(lhs.weight, rhs.weight)*/;
     }
 };
 } // namespace std
@@ -74,7 +74,10 @@ class RoutingGraph
 {
 public:
     RoutingGraph() = default;
-    void add_edge(const RoutingGraphEdge& edge);
+    // void add_edge(const RoutingGraphEdge& edge, const bool successor, const bool predecessor);
+    void add_successor(const LaneKey& from, const LaneKey& to, double weight); // add successor for from
+    void add_predecessor(const LaneKey& from, const LaneKey& to, double weight); // add predecessor for to
+
 
     std::vector<LaneKey> get_lane_successors(const LaneKey& lane_key) const;
     std::vector<LaneKey> get_lane_predecessors(const LaneKey& lane_key) const;

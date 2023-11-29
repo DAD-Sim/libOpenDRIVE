@@ -69,6 +69,18 @@ Vec2D ParamPoly3::get_grad(double s) const
     return {{dx, dy}};
 }
 
+Vec2D ParamPoly3::get_laplace(double s) const
+{   
+    const double p = this->cubic_bezier.get_t(s - s0);
+    const Vec2D ddxy = this->cubic_bezier.get_laplace(p);
+    const double h1 = std::cos(hdg0);
+    const double h2 = std::sin(hdg0);
+    const double ddx = h1 * ddxy[0] - h2 * ddxy[1];
+    const double ddy = h2 * ddxy[0] + h1 * ddxy[1];
+
+    return {{ddx, ddy}};
+}
+
 std::set<double> ParamPoly3::approximate_linear(double eps) const
 {
     std::set<double> p_vals = this->cubic_bezier.approximate_linear(eps);

@@ -30,6 +30,8 @@ double Poly3::get(double s) const { return a + b * s + c * s * s + d * s * s * s
 
 double Poly3::get_grad(double s) const { return b + 2 * c * s + 3 * d * s * s; }
 
+double Poly3::get_laplace(double s) const { return 2 * c + 6 * d * s; }
+
 double Poly3::get_max(double s_start, double s_end) const
 {
     if (this->d != 0)
@@ -122,6 +124,14 @@ double CubicSpline::get_grad(double s, double default_val, bool extend_start) co
     if (poly.isnan())
         return default_val;
     return poly.get_grad(s);
+}
+
+double CubicSpline::get_laplace(double s, double default_val, bool extend_start) const
+{
+    const Poly3& poly = this->get_poly(s, extend_start);
+    if (poly.isnan())
+        return default_val;
+    return poly.get_laplace(s);
 }
 
 CubicSpline CubicSpline::negate() const

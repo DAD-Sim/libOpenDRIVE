@@ -28,6 +28,13 @@ Vec2D Arc::get_grad(double s) const
     return {{dx, dy}};
 }
 
+Vec2D Arc::get_laplace(double s) const
+{
+    const double dx = -curvature * std::cos((M_PI / 2) - curvature * (s - s0) - hdg0);
+    const double dy =  curvature * std::sin((M_PI / 2) - curvature * (s - s0) - hdg0);
+    return {{dx, dy}};
+}
+
 std::set<double> Arc::approximate_linear(double eps) const
 {
     // TODO: properly implement

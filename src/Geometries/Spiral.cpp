@@ -41,6 +41,22 @@ Vec2D Spiral::get_grad(double s) const
     return {{dx, dy}};
 }
 
+Vec2D Spiral::get_laplace(double s) const
+{
+    const double hdg = hdg0 - a0_spiral;
+    double a = 1.0 / std::sqrt(std::fabs(c_dot));
+    a *= std::sqrt(M_PI);
+    Vec2D ddxy;
+    ddxy[0] = -a * M_PI * (s/a) * std::sin(c_dot * s * s * 0.5);
+    ddxy[1] =  a * M_PI * (s/a) * std::cos(c_dot * s * s * 0.5);
+    
+    const double h1 = std::cos(hdg);
+    const double h2 = std::sin(hdg);
+    const double ddx = h1 * ddxy[0] - h2 * ddxy[1];
+    const double ddy = h2 * ddxy[0] + h1 * ddxy[1];
+    return {{ddx, ddy}};
+}
+
 std::set<double> Spiral::approximate_linear(double eps) const
 {
     // TODO: properly implement

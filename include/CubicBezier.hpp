@@ -19,6 +19,7 @@ struct CubicBezier
 
     Vec<T, Dim>                get(const T t) const;
     Vec<T, Dim>                get_grad(const T t) const;
+    Vec<T, Dim>                get_laplace(const T t) const;
     T                          get_t(const T arclen) const;
     T                          get_length() const;
     std::array<Vec<T, Dim>, 4> get_subcurve(const T t_start, const T t_end) const;
@@ -150,6 +151,18 @@ Vec<T, Dim> CubicBezier<T, Dim>::get_grad(const T t) const
         grad[dim] = coefficients[1][dim] + 2 * coefficients[2][dim] * t + 3 * coefficients[3][dim] * t * t;
 
     return grad;
+}
+
+template<typename T, std::size_t Dim>
+Vec<T, Dim> CubicBezier<T, Dim>::get_laplace(const T t) const
+{
+    std::array<Vec<T, Dim>, 4> coefficients = this->get_coefficients(this->control_points);
+
+    Vec<T, Dim> laplace;
+    for (std::size_t dim = 0; dim < Dim; dim++)
+        laplace[dim] = 2 * coefficients[2][dim] + 6 * coefficients[3][dim] * t;
+
+    return laplace;
 }
 
 template<typename T, std::size_t Dim>
