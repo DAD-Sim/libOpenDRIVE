@@ -1,8 +1,9 @@
 #include "RoutingGraph.h"
-
+#include "Utils.hpp"
 #include <algorithm>
 #include <limits>
 #include <utility>
+#include <iostream>
 
 namespace odr
 {
@@ -16,11 +17,33 @@ WeightedLaneKey::WeightedLaneKey(std::string road_id, double lanesection_s0, int
 {
 }
 
-void RoutingGraph::add_edge(const RoutingGraphEdge& edge)
+// void RoutingGraph::add_edge(const RoutingGraphEdge& edge, const bool successor, const bool predecessor)
+// {
+//     if (successor || predecessor)
+//     {
+//         this->edges.insert(edge);
+//     }
+//     if (successor)
+//     {
+//         this->lane_key_to_successors[edge.from].insert(WeightedLaneKey(edge.to, edge.weight));
+//     }
+//     if (predecessor)
+//     {
+//         this->lane_key_to_predecessors[edge.to].insert(WeightedLaneKey(edge.from, edge.weight));
+//     }
+// }
+void RoutingGraph::add_successor(const LaneKey& from, const LaneKey& to, double weight)
 {
+    auto edge = RoutingGraphEdge(from, to, weight);
     this->edges.insert(edge);
-    this->lane_key_to_successors[edge.from].insert(WeightedLaneKey(edge.to, edge.weight));
-    this->lane_key_to_predecessors[edge.to].insert(WeightedLaneKey(edge.from, edge.weight));
+    this->lane_key_to_successors[from].insert(WeightedLaneKey(to, edge.weight));
+}
+
+void RoutingGraph::add_predecessor(const LaneKey& from, const LaneKey& to, double weight)
+{
+    auto edge = RoutingGraphEdge(from, to, weight);
+    this->edges.insert(edge);
+    this->lane_key_to_predecessors[to].insert(WeightedLaneKey(from, edge.weight));
 }
 
 std::vector<LaneKey> RoutingGraph::get_lane_successors(const LaneKey& lane_key) const

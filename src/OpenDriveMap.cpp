@@ -373,10 +373,11 @@ OpenDriveMap::OpenDriveMap(const std::string& xodr_file,
         }
 
         /* parse road lane sections and lanes */
-        for (pugi::xml_node lanesection_node : road_node.child("lanes").children("laneSection"))
+        for (int lanesection_id = 0; pugi::xml_node lanesection_node : road_node.child("lanes").children("laneSection"))
         {
             const double s0 = lanesection_node.attribute("s").as_double(0.0);
             LaneSection& lanesection = road.s_to_lanesection.insert({s0, LaneSection(road_id, s0)}).first->second;
+            lanesection.id = lanesection_id++;
             lanesection.xml_node = lanesection_node;
 
             for (pugi::xpath_node lane_xpath_node : lanesection_node.select_nodes(".//lane"))
@@ -751,8 +752,50 @@ RoutingGraph OpenDriveMap::get_routing_graph() const
         {
             const Road&     road = id_road.second;
             const RoadLink& road_link = find_successor ? road.successor : road.predecessor;
+            // handle lane connection in this road
+            for (auto s_lanesec_iter = road.s_to_lanesection.begin(); s_lanesec_iter != road.s_to_lanesection.end(); s_lanesec_iter++)
+            {
+                if ((find_successor && std::next(s_lanesec_iter) != road.s_to_lanesection.end()) ||
+                    (!find_successor && s_lanesec_iter != road.s_to_lanesection.begin()))
+                { // the next lane is in this road
+                    const LaneSection& lanesec = s_lanesec_iter->second;
+                    const LaneSection* next_lanesec = find_successor ? &(std::next(s_lanesec_iter)->second) : &(std::prev(s_lanesec_iter)->second);
+                    const Road*        next_lanesecs_road = &road;
+
+                    for (const auto& id_lane : lanesec.id_to_lane)
+                    {
+                        const Lane& lane = id_lane.second;
+                        const int   next_lane_id = find_successor ? lane.successor : lane.predecessor;
+                        if (next_lane_id == 0)
+                            continue;
+
+                        auto next_lane_iter = next_lanesec->id_to_lane.find(next_lane_id);
+                        if (next_lane_iter == next_lanesec->id_to_lane.end())
+                            continue;
+                        const Lane& next_lane = next_lane_iter->second;
+
+                        const Lane&        from_lane = find_successor ? lane : next_lane;
+                        const LaneSection& from_lanesection = find_successor ? lanesec : *next_lanesec;
+                        const Road&        from_road = find_successor ? road : *next_lanesecs_road;
+
+                        const Lane&        to_lane = find_successor ? next_lane : lane;
+                        const LaneSection& to_lanesection = find_successor ? *next_lanesec : lanesec;
+                        const Road&        to_road = find_successor ? *next_lanesecs_road : road;
+
+                        const LaneKey from(from_road.id, from_lanesection.s0, from_lane.id);
+                        const LaneKey to(to_road.id, to_lanesection.s0, to_lane.id);
+                        // const double  lane_length = road.get_lanesection_length(from_lanesection);
+                        // routing_graph.add_edge(RoutingGraphEdge(from, to, lane_length), true, true);
+                        routing_graph.add_successor(from, to, to_road.get_lanesection_length(to_lanesection));
+                        routing_graph.add_predecessor(from, to, from_road.get_lanesection_length(from_lanesection));
+                    }
+                }
+            }
+
             if (road_link.type != RoadLink::Type_Road || road_link.contact_point == RoadLink::ContactPoint_None)
+            {
                 continue;
+            }
 
             auto next_road_iter = this->id_to_road.find(road_link.id);
             if (next_road_iter == this->id_to_road.end())
@@ -762,54 +805,73 @@ RoutingGraph OpenDriveMap::get_routing_graph() const
                                                                ? next_road.s_to_lanesection.begin()->second
                                                                : next_road.s_to_lanesection.rbegin()->second;
 
-            for (auto s_lanesec_iter = road.s_to_lanesection.begin(); s_lanesec_iter != road.s_to_lanesection.end(); s_lanesec_iter++)
-            {
-                const LaneSection& lanesec = s_lanesec_iter->second;
-                const LaneSection* next_lanesec = nullptr;
-                const Road*        next_lanesecs_road = nullptr;
+            // for (auto s_lanesec_iter = road.s_to_lanesection.begin(); s_lanesec_iter != road.s_to_lanesection.end(); s_lanesec_iter++)
+            // {
+            // const LaneSection& lanesec = s_lanesec_iter->second;
+            const LaneSection& lanesec = find_successor ? road.s_to_lanesection.rbegin()->second : road.s_to_lanesection.begin()->second;
+            const LaneSection* next_lanesec = &next_road_contact_lanesec;
+            const Road*        next_lanesecs_road = &next_road;
 
-                if (find_successor && std::next(s_lanesec_iter) == road.s_to_lanesection.end())
+            // if (find_successor && std::next(s_lanesec_iter) == road.s_to_lanesection.end())
+            // {
+            //     next_lanesec = &next_road_contact_lanesec; // take next road to find successor
+            //     next_lanesecs_road = &next_road;
+            // }
+            // else if (!find_successor && s_lanesec_iter == road.s_to_lanesection.begin())
+            // {
+            //     next_lanesec = &next_road_contact_lanesec; // take prev. road to find predecessor
+            //     next_lanesecs_road = &next_road;
+            // }
+            // else
+            // {
+            //     next_lanesec = find_successor ? &(std::next(s_lanesec_iter)->second) : &(std::prev(s_lanesec_iter)->second);
+            //     next_lanesecs_road = &road;
+            // }
+
+            for (const auto& id_lane : lanesec.id_to_lane)
+            {
+                const Lane& lane = id_lane.second;
+                const int   next_lane_id = find_successor ? lane.successor : lane.predecessor;
+                if (next_lane_id == 0)
+                    continue;
+
+                auto next_lane_iter = next_lanesec->id_to_lane.find(next_lane_id);
+                if (next_lane_iter == next_lanesec->id_to_lane.end())
+                    continue;
+                const Lane& next_lane = next_lane_iter->second;
+
+                // const Lane&        from_lane = find_successor ? lane : next_lane;
+                // const LaneSection& from_lanesection = find_successor ? lanesec : *next_lanesec;
+                // const Road&        from_road = find_successor ? road : *next_lanesecs_road;
+
+                // const Lane&        to_lane = find_successor ? next_lane : lane;
+                // const LaneSection& to_lanesection = find_successor ? *next_lanesec : lanesec;
+                // const Road&        to_road = find_successor ? *next_lanesecs_road : road;
+
+                // const LaneKey from(from_road.id, from_lanesection.s0, from_lane.id);
+                // const LaneKey to(to_road.id, to_lanesection.s0, to_lane.id);
+                // const double  lane_length = road.get_lanesection_length(from_lanesection);
+                // routing_graph.add_edge(RoutingGraphEdge(from, to, lane_length), true, true);
+                // routing_graph.add_successor(from, to, to_road.get_lanesection_length(to_lanesection));
+                // routing_graph.add_predecessor(from, to, from_road.get_lanesection_length(from_lanesection));
+                if (find_successor)
                 {
-                    next_lanesec = &next_road_contact_lanesec; // take next road to find successor
-                    next_lanesecs_road = &next_road;
-                }
-                else if (!find_successor && s_lanesec_iter == road.s_to_lanesection.begin())
-                {
-                    next_lanesec = &next_road_contact_lanesec; // take prev. road to find predecessor
-                    next_lanesecs_road = &next_road;
+                    routing_graph.add_successor(lane.key, next_lane.key, next_lanesecs_road->get_lanesection_length(*next_lanesec));
                 }
                 else
                 {
-                    next_lanesec = find_successor ? &(std::next(s_lanesec_iter)->second) : &(std::prev(s_lanesec_iter)->second);
-                    next_lanesecs_road = &road;
+                    routing_graph.add_predecessor(next_lane.key, lane.key, next_lanesecs_road->get_lanesection_length(*next_lanesec));
                 }
-
-                for (const auto& id_lane : lanesec.id_to_lane)
+                if (road_link.contact_point == RoadLink::ContactPoint_Start)
                 {
-                    const Lane& lane = id_lane.second;
-                    const int   next_lane_id = find_successor ? lane.successor : lane.predecessor;
-                    if (next_lane_id == 0)
-                        continue;
-
-                    auto next_lane_iter = next_lanesec->id_to_lane.find(next_lane_id);
-                    if (next_lane_iter == next_lanesec->id_to_lane.end())
-                        continue;
-                    const Lane& next_lane = next_lane_iter->second;
-
-                    const Lane&        from_lane = find_successor ? lane : next_lane;
-                    const LaneSection& from_lanesection = find_successor ? lanesec : *next_lanesec;
-                    const Road&        from_road = find_successor ? road : *next_lanesecs_road;
-
-                    const Lane&        to_lane = find_successor ? next_lane : lane;
-                    const LaneSection& to_lanesection = find_successor ? *next_lanesec : lanesec;
-                    const Road&        to_road = find_successor ? *next_lanesecs_road : road;
-
-                    const LaneKey from(from_road.id, from_lanesection.s0, from_lane.id);
-                    const LaneKey to(to_road.id, to_lanesection.s0, to_lane.id);
-                    const double  lane_length = road.get_lanesection_length(from_lanesection);
-                    routing_graph.add_edge(RoutingGraphEdge(from, to, lane_length));
+                    routing_graph.add_predecessor(lane.key, next_lane.key, road.get_lanesection_length(lanesec));
+                }
+                else if(road_link.contact_point == RoadLink::ContactPoint_End)
+                {
+                    routing_graph.add_successor(next_lane.key, lane.key, road.get_lanesection_length(lanesec));
                 }
             }
+            // }
         }
     }
 
@@ -848,10 +910,34 @@ RoutingGraph OpenDriveMap::get_routing_graph() const
                 const Lane& from_lane = from_lane_iter->second;
                 const Lane& to_lane = to_lane_iter->second;
 
-                const LaneKey from(incoming_road.id, incoming_lanesec.s0, from_lane.id);
-                const LaneKey to(connecting_road.id, connecting_lanesec.s0, to_lane.id);
-                const double  lane_length = incoming_road.get_lanesection_length(incoming_lanesec);
-                routing_graph.add_edge(RoutingGraphEdge(from, to, lane_length));
+                const LaneKey incoming_lane(incoming_road.id, incoming_lanesec.s0, from_lane.id);
+                const LaneKey connecting_lane(connecting_road.id, connecting_lanesec.s0, to_lane.id);
+
+                const double incoming_length = incoming_road.get_lanesection_length(incoming_lanesec);
+                const double connecting_length = connecting_road.get_lanesection_length(connecting_lanesec);
+
+                // routing_graph.add_edge(RoutingGraphEdge(from, to, incoming_road.get_lanesection_length(incoming_lanesec)),
+                //                        is_succ_junc,
+                //                        conn.contact_point == JunctionConnection::ContactPoint_Start);
+                // routing_graph.add_edge(RoutingGraphEdge(to, from, connecting_road.get_lanesection_length(connecting_lanesec)),
+                //                        conn.contact_point == JunctionConnection::ContactPoint_End,
+                //                        is_pred_junc);
+                if (is_succ_junc)
+                {
+                    routing_graph.add_successor(incoming_lane, connecting_lane, connecting_length);
+                }
+                if (is_pred_junc)
+                {
+                    routing_graph.add_predecessor(connecting_lane, incoming_lane, connecting_length);
+                }
+                if (conn.contact_point == JunctionConnection::ContactPoint_Start)
+                {
+                    routing_graph.add_predecessor(incoming_lane, connecting_lane, incoming_length);
+                }
+                if (conn.contact_point == JunctionConnection::ContactPoint_End)
+                {
+                    routing_graph.add_successor(connecting_lane, incoming_lane, incoming_length);
+                }
             }
         }
     }

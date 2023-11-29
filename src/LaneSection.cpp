@@ -32,6 +32,20 @@ int LaneSection::get_lane_id(const double s, const double t) const
     return target_iter->second;
 }
 
+bool LaneSection::is_on_road(const double s, const double t) const
+{
+    double min_t = this->id_to_lane.begin()->second.outer_border.get(s);
+    double max_t = (--this->id_to_lane.end())->second.outer_border.get(s);
+    if (min_t <= t && t <= max_t)
+    {
+        return true;
+    }
+    else
+    {
+        return false;
+    }
+}
+
 Lane LaneSection::get_lane(const double s, const double t) const { return this->id_to_lane.at(this->get_lane_id(s, t)); }
 
 } // namespace odr

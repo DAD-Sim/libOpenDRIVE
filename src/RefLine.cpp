@@ -83,14 +83,46 @@ Vec3D RefLine::get_grad(const double s) const
     return Vec3D{d_xy[0], d_xy[1], this->elevation_profile.get_grad(s)};
 }
 
-double RefLine::match(const double x, const double y) const
+double RefLine::get_curvature(const double s) const
+{
+    const RoadGeometry* geom = this->get_geometry(s);
+
+    double d_x = 0;
+    double d_y = 0;
+    double dd_x = 0;
+    double dd_y = 0;
+    if (geom)
+    {
+        auto d_xy = geom->get_grad(s);
+        d_x = d_xy[0];
+        d_y = d_xy[1];
+        auto dd_xy = geom->get_laplace(s);
+        dd_x = dd_xy[0];
+        dd_y = dd_xy[1];
+    }
+    double d_z = this->elevation_profile.get_grad(s);
+    double dd_z = this->elevation_profile.get_laplace(s);
+
+    double curvature = std::sqrt(std::pow(dd_z * d_y - dd_y * d_z, 2) + std::pow(dd_x * d_z - dd_z * d_x, 2) + std::pow(dd_y * d_x - dd_x * d_y, 2)) /
+                       std::pow(d_x * d_x + d_y * d_y + d_z * d_z, 1.5);
+
+    // 计算XY平面的散度，判断曲率正负（t轴方向为正）
+    if (curvature != 0)
+    {
+        curvature *= -odr::sign(dd_x / d_y - dd_y / d_x);
+    }
+
+    return curvature;
+}
+
+double RefLine::match(const double x, const double y, const double eps = 1e-2) const
 {
     std::function<double(double)> f_dist = [&](const double s)
     {
         const Vec3D pt = this->get_xyz(s);
         return euclDistance(Vec2D{pt[0], pt[1]}, {x, y});
     };
-    return golden_section_search<double>(f_dist, 0.0, length, 1e-2);
+    return golden_section_search<double>(f_dist, 0.0, length, eps);
 }
 
 Line3D RefLine::get_line(const double s_start, const double s_end, const double eps) const

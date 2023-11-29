@@ -25,8 +25,9 @@ struct RefLine
 
     Vec3D            get_xyz(const double s) const;
     Vec3D            get_grad(const double s) const;
+    double           get_curvature(const double s) const;
     Line3D           get_line(const double s_start, const double s_end, const double eps) const;
-    double           match(const double x, const double y) const;
+    double           match(const double x, const double y, const double eps) const;
     std::set<double> approximate_linear(const double eps, const double s_start, const double s_end) const;
 
     std::string road_id = "";

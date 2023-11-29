@@ -17,7 +17,9 @@ struct LaneSection : public XmlNode
 
     int  get_lane_id(const double s, const double t) const;
     Lane get_lane(const double s, const double t) const;
+    bool is_on_road(const double s, const double t) const;
 
+    int id; // Only for internal use
     std::string         road_id = "";
     double              s0 = 0;
     std::map<int, Lane> id_to_lane;

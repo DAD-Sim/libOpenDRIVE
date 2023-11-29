@@ -13,6 +13,7 @@ struct Poly3
 
     double get(double s) const;
     double get_grad(double s) const;
+    double get_laplace(double s) const;
     double get_max(double s_start, double s_end) const;
     void   negate();
     bool   isnan() const;
@@ -31,6 +32,7 @@ struct CubicSpline
 
     double get(double s, double default_val = 0.0, bool extend_start = true) const;
     double get_grad(double s, double default_val = 0.0, bool extend_start = true) const;
+    double get_laplace(double s, double default_val = 0.0, bool extend_start = true) const;
     double get_max(double s_start, double s_end) const;
     Poly3  get_poly(double s, bool extend_start = true) const;
 
